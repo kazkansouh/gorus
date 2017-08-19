@@ -7,20 +7,65 @@ import (
 	"github.com/go-gl/glfw/v3.2/glfw"
 )
 
+/*
+      8                  9
+       .-----------------.
+      /                 /|
+     /                 / |
+   0/                1/  |
+   .-----------------.   |
+   |                 |   |
+   |  .-----------.  |   |
+   |  | 4/      5 |  |   |11
+   |  | /   +     |  |   .
+   |  |/6       7 |  |  /
+   |  .-----------.  | /
+   |                 |/
+   .-----------------.
+   2                 3
+
+
+      1                  0
+       .-----------------.
+      /                 /|
+     /                 / |
+   9/                8/  |
+   .-----------------.   |
+   |                 |   |
+   |  .-----------.  |   |
+   |  | 13     12 |  |   |2
+   |  | /   +     |  |   .
+   |  |/15     14 |  |  /
+   |  .-----------.  | /
+   |                 |/
+   .-----------------.
+   11                10
+
+*/
+
+const (
+	bunit = 0.5
+	sunit = 0.25
+)
+
 var (
 	model_pts = []float32{
-		0, 0.5, -0.5,
-		0, -0.5, -0.5,
-		0.75, -0.5, -0.5,
-		0.75, 0.5, 0.5,
-		-0.75, 0.5, -0.5,
-		-0.75, 0, -0.5,
-		-0.25, 0.5, -0.5,
-		-0.25, 0, -0.5,
-		-0.75, 0.5, 0,
-		-0.75, 0, 0,
-		-0.25, 0.5, 0,
-		-0.25, 0, 0,
+		-bunit, bunit, -bunit,
+		bunit, bunit, -bunit,
+		-bunit, -bunit, -bunit,
+		bunit, -bunit, -bunit,
+		-sunit, sunit, -bunit,
+		sunit, sunit, -bunit,
+		-sunit, -sunit, -bunit,
+		sunit, -sunit, -bunit,
+		-bunit, bunit, bunit,
+		bunit, bunit, bunit,
+		-bunit, -bunit, bunit,
+		bunit, -bunit, bunit,
+		-sunit, sunit, bunit,
+		sunit, sunit, bunit,
+		-sunit, -sunit, bunit,
+		sunit, -sunit, bunit,
 	}
 	model_col = []float32{
 		1, 1, 0,
@@ -35,25 +80,42 @@ var (
 		0, 1, 0,
 		0, 1, 0,
 		1, 0, 0,
+		1, 1, 0,
+		0, 1, 1,
 	}
 	model_idx = []int32{
-		0, 1, 2,
-		0, 2, 3,
-		0, 3, 1,
-		1, 3, 2,
-		4, 5, 7,
-		4, 7, 6,
-		4, 9, 5,
-		4, 8, 9,
-		6, 7, 11,
-		6, 7, 11,
-		6, 11, 10,
-		4, 6, 8,
-		6, 10, 8,
-		5, 9, 7,
-		7, 9, 11,
-		8, 10, 9,
-		10, 11, 9,
+		15, 14, 6,
+		15, 6, 7,
+		12, 4, 14,
+		4, 6, 14,
+		5, 13, 7,
+		13, 15, 7,
+		13, 5, 4,
+		4, 12, 13,
+		0, 4, 1,
+		1, 4, 5,
+		1, 5, 3,
+		3, 5, 7,
+		3, 7, 2,
+		2, 7, 6,
+		2, 6, 0,
+		0, 6, 4,
+		9, 8, 0,
+		9, 0, 1,
+		9, 1, 11,
+		1, 3, 11,
+		0, 8, 2,
+		8, 10, 2,
+		11, 3, 2,
+		11, 2, 10,
+		8, 9, 13,
+		8, 13, 12,
+		8, 12, 10,
+		12, 14, 10,
+		10, 14, 11,
+		11, 14, 15,
+		11, 15, 9,
+		15, 13, 9,
 	}
 	matrix = mat4{
 		vec4{1.0, 0.0, 0.0, 0.0},
@@ -117,16 +179,16 @@ func keyPress(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mo
 
 	switch key {
 	case 263:
-		mult(&matrix, rotate(0, 0, 1))
+		mult(&matrix, rotate(0, 0, float32(action)))
 	case 262:
-		mult(&matrix, rotate(0, 0, 359))
+		mult(&matrix, rotate(0, 0, float32(360-action)))
 	case 264:
-		mult(&matrix, rotate(0, 1, 0))
+		mult(&matrix, rotate(0, float32(action), 0))
 	case 265:
-		mult(&matrix, rotate(0, 359, 0))
+		mult(&matrix, rotate(0, float32(360-action), 0))
 	case 90:
-		mult(&matrix, rotate(1, 0, 0))
+		mult(&matrix, rotate(float32(action), 0, 0))
 	case 88:
-		mult(&matrix, rotate(359, 0, 0))
+		mult(&matrix, rotate(float32(360-action), 0, 0))
 	}
 }
