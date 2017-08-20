@@ -3,19 +3,22 @@ package main
 import (
 	"log"
 	"math"
+	"math/rand"
+	"time"
 
 	"github.com/go-gl/gl/v3.2-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
 )
 
 /*
-  disc
+  plots a flat disk with a hole in it
 */
 
 const (
-	bunit = 0.5
-	sunit = 0.25
-	steps = 5
+	base_r = 0.5
+	step_r = 0.1
+	rings  = 4
+	steps  = 100
 )
 
 var (
@@ -73,21 +76,43 @@ func keyPress(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mo
 func generateModel() {
 	const step = math.Pi * 2 / float64(steps)
 
+	rand.Seed(time.Now().Unix())
+	colors := [rings][3]float32{}
+	for i := 0; i < rings; i++ {
+		colors[i][0] = rand.Float32()
+		colors[i][1] = rand.Float32()
+		colors[i][2] = rand.Float32()
+	}
+
 	for i := 0; i < steps; i++ {
 		sin, cos := math.Sincos(step * float64(i))
-		model_pts = append(model_pts, float32(cos*sunit), float32(sin*sunit), 0)
-		model_col = append(model_col, 1, 0, 0)
-		if n := int32(len(model_pts)/3 - 1); n >= 2 {
-			model_idx = append(model_idx, n, n-2, n-1)
-		}
-		model_pts = append(model_pts, float32(cos*bunit), float32(sin*bunit), 0)
-		model_col = append(model_col, 0, 0, 1)
-		if n := int32(len(model_pts)/3 - 1); n >= 2 {
-			model_idx = append(model_idx, n, n-1, n-2)
+		for j := 0; j < rings; j++ {
+			model_pts = append(
+				model_pts,
+				float32(cos*(base_r+step_r*float64(j))),
+				float32(sin*(base_r+step_r*float64(j))),
+				-0.1*float32(j))
+			model_col = append(model_col, colors[j][0], colors[j][1], colors[j][2])
+			if n := int32(len(model_pts)/3 - 1); n >= rings {
+				if j > 0 {
+					model_idx = append(model_idx, n, n-1, n-rings)
+				}
+				if j < rings-1 {
+					model_idx = append(model_idx, n, n-rings, n-rings+1)
+				}
+			}
 		}
 	}
-	if n := int32(len(model_pts)/3 - 1); n >= 2 {
-		model_idx = append(model_idx, 0, n-1, n, 1, 0, n)
+	// close the loop
+	for j := int32(0); j < rings; j++ {
+		if n := int32(len(model_pts)/3 - 1); n >= rings {
+			if j > 0 {
+				model_idx = append(model_idx, j, j-1, n-rings+1+j)
+			}
+			if j < rings-1 {
+				model_idx = append(model_idx, j, n-rings+1+j, n-rings+2+j)
+			}
+		}
 	}
 	log.Println("Triangles: ", model_idx)
 }
