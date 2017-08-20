@@ -92,8 +92,9 @@ func initOpenGL() uint32 {
 		panic(err)
 	}
 
-	gl.Enable(gl.CULL_FACE)
+	//	gl.Enable(gl.CULL_FACE)
 	gl.Enable(gl.DEPTH_TEST)
+	//	gl.PolygonMode( gl.FRONT_AND_BACK, gl.LINE )
 
 	prog := gl.CreateProgram()
 	gl.AttachShader(prog, vertexShader)

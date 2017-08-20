@@ -4,6 +4,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/go-gl/gl/v3.2-core/gl"
@@ -35,10 +36,12 @@ import (
 */
 
 const (
+	stride    = 9
+	lines     = 3
 	base_r    = 0.25
-	base_R    = 0.4
-	samples_r = 50
-	samples_R = 50
+	base_R    = 0.6
+	samples_r = stride * lines
+	samples_R = stride * lines
 	step_r    = math.Pi * 2 / float64(samples_r)
 	step_R    = math.Pi * 2 / float64(samples_R)
 )
@@ -53,24 +56,47 @@ var (
 		vec4{0.0, 0.0, 1.0, 0.0},
 		vec4{0.0, 0.0, 0.0, 1.0},
 	}
+	matrix_mutex sync.RWMutex
 )
 
 func main() {
 	generateModel()
 
-	mainloop(func() VAO {
-		return makeVao(model_pts, model_col, model_idx)
-	}, draw, keyPress)
+	fin := make(chan bool)
+
+	go func(f chan<- bool) {
+		mainloop(func() VAO {
+			return makeVao(model_pts, model_col, model_idx)
+		}, draw, keyPress)
+		f <- true
+	}(fin)
+
+	t := time.Tick(time.Second / 16)
+
+loop:
+	for {
+		select {
+		case <-t:
+			matrix_mutex.Lock()
+			mult(&matrix, rotate(0, 0, 0.5))
+			matrix_mutex.Unlock()
+		case <-fin:
+			log.Println("fin")
+			break loop
+		}
+	}
 }
 
 func draw(vao VAO, window *glfw.Window, program uint32) {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 	gl.UseProgram(program)
 
+	matrix_mutex.RLock()
 	gl.UniformMatrix4fv(0, 1, false, &(matrix[0][0]))
 
 	gl.BindVertexArray(vao.v)
 	gl.DrawElements(gl.TRIANGLES, vao.n, gl.UNSIGNED_INT, nil)
+	matrix_mutex.RUnlock()
 
 	glfw.PollEvents()
 	window.SwapBuffers()
@@ -79,6 +105,7 @@ func draw(vao VAO, window *glfw.Window, program uint32) {
 func keyPress(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
 	log.Println("Key Press: ", key, "(", action, ")")
 
+	matrix_mutex.Lock()
 	switch key {
 	case 263:
 		mult(&matrix, rotate(0, 0, float32(action)))
@@ -93,6 +120,7 @@ func keyPress(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mo
 	case 88:
 		mult(&matrix, rotate(float32(360-action), 0, 0))
 	}
+	matrix_mutex.Unlock()
 }
 
 func generateModel() {
@@ -121,34 +149,41 @@ func generateModel() {
 				colors[j][0],
 				colors[j][1],
 				colors[j][2])
-			if n := int32(len(model_pts)/3 - 1); n >= samples_r {
-				if j > 0 {
-					model_idx = append(
-						model_idx, n, n-1, n-samples_r)
-				}
-				if j < samples_r-1 {
-					model_idx = append(
-						model_idx,
-						n,
-						n-samples_r,
-						n-samples_r+1)
+			if n := int32(len(model_pts)/3 - 1); n >= samples_r && ((j+i)%stride == 0 || j == samples_r-1) {
+				if (j+i)%stride == 0 {
+					if j > 0 {
+						model_idx = append(
+							model_idx, n, n-1, n-samples_r)
+					}
+					if j < samples_r-1 {
+						model_idx = append(
+							model_idx,
+							n,
+							n-samples_r,
+							n-samples_r+1)
+					} else {
+						model_idx = append(
+							model_idx,
+							n,
+							n-samples_r,
+							n-samples_r*2+1)
+					}
 				} else {
-					model_idx = append(
-						model_idx,
-						n,
-						n-samples_r,
-						n-samples_r*2+1,
-						n,
-						n-samples_r*2+1,
-						n-samples_r+1)
+					if (j+i)%stride == stride-1 {
+						model_idx = append(
+							model_idx,
+							n,
+							n-samples_r*2+1,
+							n-samples_r+1)
+					}
 				}
 			}
 		}
 	}
 	// close the loop
 	for j := int32(0); j < samples_r; j++ {
-		if n := int32(len(model_pts)/3 - 1); n >= samples_r {
-			if j > 0 {
+		if n := int32(len(model_pts)/3 - 1); n >= samples_r && (j%stride == 0 || j == samples_r-1) {
+			if j > 0 && j%stride == 0 {
 				model_idx = append(
 					model_idx, j, j-1, n-samples_r+1+j)
 			}
@@ -159,7 +194,6 @@ func generateModel() {
 			} else {
 				model_idx = append(
 					model_idx,
-					j, n, n-samples_r+1,
 					j, n-samples_r+1, 0)
 			}
 		}
