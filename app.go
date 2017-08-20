@@ -93,6 +93,7 @@ func initOpenGL() uint32 {
 	}
 
 	gl.Enable(gl.CULL_FACE)
+	gl.Enable(gl.DEPTH_TEST)
 
 	prog := gl.CreateProgram()
 	gl.AttachShader(prog, vertexShader)
