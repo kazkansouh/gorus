@@ -2,122 +2,27 @@ package main
 
 import (
 	"log"
+	"math"
 
 	"github.com/go-gl/gl/v3.2-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
 )
 
 /*
-      8                  9
-       .-----------------.
-      /                 /|
-     /                 / |
-   0/                1/  |
-   .-----------------.   |
-   |                 |   |
-   |  .-----------.  |   |
-   |  | 4/      5 |  |   |11
-   |  | /   +     |  |   .
-   |  |/6       7 |  |  /
-   |  .-----------.  | /
-   |                 |/
-   .-----------------.
-   2                 3
-
-
-      1                  0
-       .-----------------.
-      /                 /|
-     /                 / |
-   9/                8/  |
-   .-----------------.   |
-   |                 |   |
-   |  .-----------.  |   |
-   |  | 13     12 |  |   |2
-   |  | /   +     |  |   .
-   |  |/15     14 |  |  /
-   |  .-----------.  | /
-   |                 |/
-   .-----------------.
-   11                10
-
+  disc
 */
 
 const (
 	bunit = 0.5
 	sunit = 0.25
+	steps = 5
 )
 
 var (
-	model_pts = []float32{
-		-bunit, bunit, -bunit,
-		bunit, bunit, -bunit,
-		-bunit, -bunit, -bunit,
-		bunit, -bunit, -bunit,
-		-sunit, sunit, -bunit,
-		sunit, sunit, -bunit,
-		-sunit, -sunit, -bunit,
-		sunit, -sunit, -bunit,
-		-bunit, bunit, bunit,
-		bunit, bunit, bunit,
-		-bunit, -bunit, bunit,
-		bunit, -bunit, bunit,
-		-sunit, sunit, bunit,
-		sunit, sunit, bunit,
-		-sunit, -sunit, bunit,
-		sunit, -sunit, bunit,
-	}
-	model_col = []float32{
-		1, 1, 0,
-		0, 1, 1,
-		1, 0, 1,
-		1, 1, 1,
-		1, 0, 0,
-		0, 0, 1,
-		0, 0, 1,
-		1, 0, 0,
-		1, 0, 0,
-		0, 1, 0,
-		0, 1, 0,
-		1, 0, 0,
-		1, 1, 0,
-		0, 1, 1,
-	}
-	model_idx = []int32{
-		15, 14, 6,
-		15, 6, 7,
-		12, 4, 14,
-		4, 6, 14,
-		5, 13, 7,
-		13, 15, 7,
-		13, 5, 4,
-		4, 12, 13,
-		0, 4, 1,
-		1, 4, 5,
-		1, 5, 3,
-		3, 5, 7,
-		3, 7, 2,
-		2, 7, 6,
-		2, 6, 0,
-		0, 6, 4,
-		9, 8, 0,
-		9, 0, 1,
-		9, 1, 11,
-		1, 3, 11,
-		0, 8, 2,
-		8, 10, 2,
-		11, 3, 2,
-		11, 2, 10,
-		8, 9, 13,
-		8, 13, 12,
-		8, 12, 10,
-		12, 14, 10,
-		10, 14, 11,
-		11, 14, 15,
-		11, 15, 9,
-		15, 13, 9,
-	}
-	matrix = mat4{
+	model_pts = []float32{}
+	model_col = []float32{}
+	model_idx = []int32{}
+	matrix    = mat4{
 		vec4{1.0, 0.0, 0.0, 0.0},
 		vec4{0.0, 1.0, 0.0, 0.0},
 		vec4{0.0, 0.0, 1.0, 0.0},
@@ -126,6 +31,8 @@ var (
 )
 
 func main() {
+	generateModel()
+
 	mainloop(func() VAO {
 		return makeVao(model_pts, model_col, model_idx)
 	}, draw, keyPress)
@@ -142,36 +49,6 @@ func draw(vao VAO, window *glfw.Window, program uint32) {
 
 	glfw.PollEvents()
 	window.SwapBuffers()
-}
-
-// makeVao initializes and returns a vertex array from the points provided.
-func makeVao(points []float32, col []float32, idx []int32) VAO {
-	var vao uint32
-	gl.GenVertexArrays(1, &vao)
-	gl.BindVertexArray(vao)
-
-	var vbo_idx uint32
-	gl.GenBuffers(1, &vbo_idx)
-	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, vbo_idx)
-	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, 4*len(idx), gl.Ptr(idx), gl.STATIC_DRAW)
-
-	var vbo_pts uint32
-	gl.GenBuffers(1, &vbo_pts)
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo_pts)
-	gl.BufferData(gl.ARRAY_BUFFER, 4*len(points), gl.Ptr(points), gl.STATIC_DRAW)
-
-	gl.EnableVertexAttribArray(0)
-	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 0, nil)
-
-	var vbo_col uint32
-	gl.GenBuffers(1, &vbo_col)
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo_col)
-	gl.BufferData(gl.ARRAY_BUFFER, 4*len(col), gl.Ptr(col), gl.STATIC_DRAW)
-
-	gl.EnableVertexAttribArray(1)
-	gl.VertexAttribPointer(1, 3, gl.FLOAT, false, 0, nil)
-
-	return VAO{vao, int32(len(idx))}
 }
 
 func keyPress(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
@@ -191,4 +68,26 @@ func keyPress(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mo
 	case 88:
 		mult(&matrix, rotate(float32(360-action), 0, 0))
 	}
+}
+
+func generateModel() {
+	const step = math.Pi * 2 / float64(steps)
+
+	for i := 0; i < steps; i++ {
+		sin, cos := math.Sincos(step * float64(i))
+		model_pts = append(model_pts, float32(cos*sunit), float32(sin*sunit), 0)
+		model_col = append(model_col, 1, 0, 0)
+		if n := int32(len(model_pts)/3 - 1); n >= 2 {
+			model_idx = append(model_idx, n, n-2, n-1)
+		}
+		model_pts = append(model_pts, float32(cos*bunit), float32(sin*bunit), 0)
+		model_col = append(model_col, 0, 0, 1)
+		if n := int32(len(model_pts)/3 - 1); n >= 2 {
+			model_idx = append(model_idx, n, n-1, n-2)
+		}
+	}
+	if n := int32(len(model_pts)/3 - 1); n >= 2 {
+		model_idx = append(model_idx, 0, n-1, n, 1, 0, n)
+	}
+	log.Println("Triangles: ", model_idx)
 }
