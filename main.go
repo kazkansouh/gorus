@@ -11,13 +11,36 @@ import (
 )
 
 /*
-  plots a flat disk with a hole in it
+  plots a torus
+
+  r and R are the two radius of the torusm and the samples define the
+  number of samples to be taken
+
+   r
+  <-->
+     ------------
+    /            \
+   /              \
+  /     /----\     \
+  |    /      \    |
+  |    |      |    |
+  |    |      |    |
+  |    \      /    |
+  \     \----/     /
+   \              /
+    \            /
+     -----------
+          <------->
+              R
 */
 
 const (
-	base  = 0.5
-	rings = 50
-	steps = 50
+	base_r    = 0.25
+	base_R    = 0.4
+	samples_r = 50
+	samples_R = 50
+	step_r    = math.Pi * 2 / float64(samples_r)
+	step_R    = math.Pi * 2 / float64(samples_R)
 )
 
 var (
@@ -73,46 +96,71 @@ func keyPress(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mo
 }
 
 func generateModel() {
-	const step = math.Pi * 2 / float64(steps)
-	const step_r = math.Pi * 2 / float64(rings)
-
+	// generate a random colour for each stratum of the torus
 	rand.Seed(time.Now().Unix())
-	colors := [rings][3]float32{}
-	for i := 0; i < rings; i++ {
+	colors := [samples_r][3]float32{}
+	for i := 0; i < samples_r; i++ {
 		colors[i][0] = rand.Float32()
 		colors[i][1] = rand.Float32()
 		colors[i][2] = rand.Float32()
 	}
 
-	for i := 0; i < steps; i++ {
-		sin_R, cos_R := math.Sincos(step * float64(i))
-		for j := 0; j < rings; j++ {
+	// assemble the model
+	for i := 0; i < samples_R; i++ {
+		sin_R, cos_R := math.Sincos(step_R * float64(i))
+		for j := 0; j < samples_r; j++ {
 			sin_r, cos_r := math.Sincos(step_r * float64(j))
-			r_x := cos_r * 0.2
+			r_x := cos_r * base_r
 			model_pts = append(
 				model_pts,
-				float32(cos_R*(base+r_x)),
-				float32(sin_R*(base+r_x)),
-				float32(sin_r*0.2))
-			model_col = append(model_col, colors[j][0], colors[j][1], colors[j][2])
-			if n := int32(len(model_pts)/3 - 1); n >= rings {
+				float32(cos_R*(base_R+r_x)),
+				float32(sin_R*(base_R+r_x)),
+				float32(sin_r*base_r))
+			model_col = append(
+				model_col,
+				colors[j][0],
+				colors[j][1],
+				colors[j][2])
+			if n := int32(len(model_pts)/3 - 1); n >= samples_r {
 				if j > 0 {
-					model_idx = append(model_idx, n, n-1, n-rings)
+					model_idx = append(
+						model_idx, n, n-1, n-samples_r)
 				}
-				if j < rings-1 {
-					model_idx = append(model_idx, n, n-rings, n-rings+1)
+				if j < samples_r-1 {
+					model_idx = append(
+						model_idx,
+						n,
+						n-samples_r,
+						n-samples_r+1)
+				} else {
+					model_idx = append(
+						model_idx,
+						n,
+						n-samples_r,
+						n-samples_r*2+1,
+						n,
+						n-samples_r*2+1,
+						n-samples_r+1)
 				}
 			}
 		}
 	}
 	// close the loop
-	for j := int32(0); j < rings; j++ {
-		if n := int32(len(model_pts)/3 - 1); n >= rings {
+	for j := int32(0); j < samples_r; j++ {
+		if n := int32(len(model_pts)/3 - 1); n >= samples_r {
 			if j > 0 {
-				model_idx = append(model_idx, j, j-1, n-rings+1+j)
+				model_idx = append(
+					model_idx, j, j-1, n-samples_r+1+j)
 			}
-			if j < rings-1 {
-				model_idx = append(model_idx, j, n-rings+1+j, n-rings+2+j)
+			if j < samples_r-1 {
+				model_idx = append(
+					model_idx,
+					j, n-samples_r+1+j, n-samples_r+2+j)
+			} else {
+				model_idx = append(
+					model_idx,
+					j, n, n-samples_r+1,
+					j, n-samples_r+1, 0)
 			}
 		}
 	}
