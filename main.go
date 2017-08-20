@@ -15,10 +15,9 @@ import (
 */
 
 const (
-	base_r = 0.5
-	step_r = 0.1
-	rings  = 4
-	steps  = 100
+	base  = 0.5
+	rings = 50
+	steps = 50
 )
 
 var (
@@ -75,6 +74,7 @@ func keyPress(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mo
 
 func generateModel() {
 	const step = math.Pi * 2 / float64(steps)
+	const step_r = math.Pi * 2 / float64(rings)
 
 	rand.Seed(time.Now().Unix())
 	colors := [rings][3]float32{}
@@ -85,13 +85,15 @@ func generateModel() {
 	}
 
 	for i := 0; i < steps; i++ {
-		sin, cos := math.Sincos(step * float64(i))
+		sin_R, cos_R := math.Sincos(step * float64(i))
 		for j := 0; j < rings; j++ {
+			sin_r, cos_r := math.Sincos(step_r * float64(j))
+			r_x := cos_r * 0.2
 			model_pts = append(
 				model_pts,
-				float32(cos*(base_r+step_r*float64(j))),
-				float32(sin*(base_r+step_r*float64(j))),
-				-0.1*float32(j))
+				float32(cos_R*(base+r_x)),
+				float32(sin_R*(base+r_x)),
+				float32(sin_r*0.2))
 			model_col = append(model_col, colors[j][0], colors[j][1], colors[j][2])
 			if n := int32(len(model_pts)/3 - 1); n >= rings {
 				if j > 0 {
